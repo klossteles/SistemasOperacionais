@@ -7,14 +7,11 @@ CFLAGS=-c -Wall
 
 all: output
 
-output: queue.o testafila.o
-	$(CC) queue.o testafila.o -o output
+output: pingpong-tasks1.o
+	$(CC) pingpong-tasks1.o -o output
 
-queue.o: queue.c queue.h
-	$(CC) $(CFLAGS) queue.c
-
-testafila.o: testafila.c
-	$(CC) $(CFLAGS) testafila.c
+pingpong-tasks1.o: pingpong.c pingpong.h pingpong-tasks1.c
+	$(CC) $(CFLAGS) pingpong.c pingpong-tasks1.c
 
 clean: 
 	rm -rf *.o
