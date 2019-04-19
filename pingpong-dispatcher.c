@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "ppos.h"
+#include "pingpong.h"
 
 task_t Pang, Peng, Ping, Pong, Pung ;
 
@@ -29,7 +29,7 @@ int main (int argc, char *argv[])
 {
    printf ("main: inicio\n");
 
-   ppos_init () ;
+   pingpong_init () ;
 
    task_create (&Pang, Body, "    Pang") ;
    task_create (&Peng, Body, "        Peng") ;
