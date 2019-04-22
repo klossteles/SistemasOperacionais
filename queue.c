@@ -18,19 +18,27 @@ void queue_append (queue_t **queue, queue_t *elem) {
     queue_t *aux;
 
     if (elem == NULL) {
-        printf("ERROR: O elemento não existe.\n");
+        #ifdef DEBUG
+            printf("ERROR: O elemento não existe.\n");
+        #endif
         return;
     } else if (elem->prev != NULL && elem->next != NULL) {
-        printf("ERROR: O elemento pertence à outra fila.\n");
+        #ifdef DEBUG
+            printf("ERROR: O elemento pertence à outra fila.\n");
+        #endif
         return;
     } else if (*queue == NULL) {
-        printf("Fila não existe. Estamos criando uma nova...\n");
+        #ifdef DEBUG
+            printf("Fila não existe. Estamos criando uma nova...\n");
+        #endif
         aux = elem;
         aux->next = elem;
         aux->prev = elem;
         *queue = aux;
     } else {
-        printf("Adicionando elemento no fim da fila...\n");
+        #ifdef DEBUG
+            printf("Adicionando elemento no fim da fila...\n");
+        #endif
         aux = (*queue)->prev; // último elemento
         aux->next = elem; // aponta para o novo elemento inserido no fim da fila
         elem->prev = aux; // aponta para o último elemento da fila
@@ -44,10 +52,14 @@ void queue_append (queue_t **queue, queue_t *elem) {
 queue_t *queue_remove (queue_t **queue, queue_t *elem) {
 
     if (elem == NULL) {
-        printf("ERROR: O elemento não existe.\n");
+        #ifdef DEBUG
+            printf("ERROR: O elemento não existe.\n");
+        #endif
         return NULL;
     } else if (*queue == NULL) {
-        printf("ERROR: A fila não existe.\n");
+        #ifdef DEBUG
+            printf("ERROR: A fila não existe.\n");
+        #endif
         return NULL;
     } else if (!(queue_size(*queue) > 0)) {
         printf("ERROR: A fila está vazia.\n");
@@ -84,8 +96,9 @@ queue_t *queue_remove (queue_t **queue, queue_t *elem) {
 
                 aux = aux->next;
             }
-
-            printf("ERROR: O elemento não se encontra na fila.\n");
+            #ifdef DEBUG
+                printf("ERROR: O elemento não se encontra na fila.\n");
+            #endif
             return NULL;
         }
     }
@@ -98,7 +111,9 @@ int queue_size (queue_t *queue) {
     int count = 0;
 
     if (queue == NULL) {
-        printf("ERROR: A fila não existe.\n");
+        #ifdef DEBUG
+            printf("ERROR: A fila não existe.\n");
+        #endif
         return count;
     } else {
         count++; // A fila possui pelo menos 1 elemento.
