@@ -7,11 +7,11 @@ CFLAGS=-c -Wall
 
 all: output
 
-output: queue.o pingpong.o pingpong-dispatcher.o
-	$(CC) queue.o pingpong.o pingpong-dispatcher.o -o output
+output: queue.o pingpong.o pingpong-scheduler.o
+	$(CC) queue.o pingpong.o pingpong-scheduler.o -o output
 
-pingpong-dispatcher.o: pingpong-dispatcher.c
-	$(CC) $(CFLAGS) pingpong-dispatcher.c
+pingpong-scheduler.o: pingpong-scheduler.c
+	$(CC) $(CFLAGS) pingpong-scheduler.c
 
 pingpong.o: pingpong.c pingpong.h
 	$(CC) $(CFLAGS) pingpong.c
