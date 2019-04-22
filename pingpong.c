@@ -11,12 +11,29 @@ int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
 task_t *prontas;
+int alpha = -1;
 
 // funções gerais ==============================================================
 
 task_t* scheduler() {
     if (queue_size((queue_t *)prontas) > 0) {
+        task_t *aux = prontas->next;
         task_t *next = prontas;  
+        while (aux != prontas) {
+            if (task_getprio(aux) < task_getprio(next)) {
+                next = aux;
+            }
+            aux = aux->next;
+        }
+
+        aux = prontas->next;
+        while(aux != prontas){
+            if (aux != next) {
+                task_setprio(aux, alpha);
+            }
+            aux = aux->next;
+        }        
+
         return next;
     }
     return 0;
@@ -90,6 +107,7 @@ int task_create (task_t *task,			// descritor da nova tarefa
     task->next = NULL;
     task->prev = NULL;
     task->context = context;
+    task->priority = 0;
 
     if (task != &taskDispatcher) {
         queue_append((queue_t **) &prontas, (queue_t *)task);
@@ -161,12 +179,26 @@ void task_yield () {
 
 // define a prioridade estática de uma tarefa (ou a tarefa atual)
 void task_setprio (task_t *task, int prio) {
-
+    if (task == NULL){
+        #ifdef DEBUG
+            printf("task_setprio: taskAtual com id: %d e prioridade: %d\n", taskAtual->tid, taskAtual->priority);
+        #endif
+        if (taskAtual->priority + prio > -20){
+            taskAtual->priority = taskAtual->priority + prio;
+        }
+    } else {
+        #ifdef DEBUG
+            printf("task_setprio: task com id: %d e prioridade: %d\n", task->tid, task->priority);
+        #endif
+        if (task->priority + prio > -20){
+            task->priority = task->priority + prio;
+        }
+    }
 };
 
 // retorna a prioridade estática de uma tarefa (ou a tarefa atual)
 int task_getprio (task_t *task) {
-    return 0;
+    return task->priority;
 };
 
 // operações de sincronização ==================================================
