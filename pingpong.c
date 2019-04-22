@@ -4,7 +4,6 @@
 #include "datatypes.h"
 #include "pingpong.h"
 #include "queue.h"
-// #define DEBUG
 
 #define STACKSIZE 32768
 
@@ -30,6 +29,10 @@ void dispatcher_body ()  {
         next = scheduler() ; // scheduler é uma função
         if (next) {
             //... // ações antes de lançar a tarefa "next", se houverem
+            #ifdef DEBUG
+                printf("dispatcher_body: possui next com id: %d, removendo da fila e mudando contexto\n", next->tid);
+            #endif
+            queue_remove((queue_t **) &prontas,(queue_t*) next);
             task_switch (next) ; // transfere controle para a tarefa "next"
             //... // ações após retornar da tarefa "next", se houverem
         }
@@ -101,8 +104,14 @@ int task_create (task_t *task,			// descritor da nova tarefa
 // Termina a tarefa corrente, indicando um valor de status encerramento
 void task_exit (int exitCode) {
     if (taskAtual == &taskDispatcher){
+        #ifdef DEBUG
+            printf("task_exit: finalizando task dispatcher e indo para main\n");
+        #endif
         task_switch(&mainTask);
     } else {
+        #ifdef DEBUG
+            printf("task_exit: finalizando task %d e indo para dispatcher\n", taskAtual->tid);
+        #endif
         task_switch(&taskDispatcher);
     }
 };
@@ -140,9 +149,14 @@ void task_resume (task_t *task) {
 // libera o processador para a próxima tarefa, retornando à fila de tarefas
 // prontas ("ready queue")
 void task_yield () {
-    queue_remove((queue_t **) &prontas, (queue_t *)taskAtual); //remove da fila de prontas
+    // queue_remove((queue_t **) &prontas, (queue_t *)taskAtual); //remove da fila de prontas
+    if (taskAtual != &mainTask && taskAtual != &taskDispatcher) {
+        queue_append((queue_t **) &prontas, (queue_t *)taskAtual); //adiciona em último da fila de prontas
+    }
+    #ifdef DEBUG
+        printf("task_yield: Mudando para task dispatcher\n");
+    #endif
     task_switch(&taskDispatcher);
-    queue_append((queue_t **) &prontas, (queue_t *)taskAtual); //adiciona em último da fila de prontas
 };
 
 // define a prioridade estática de uma tarefa (ou a tarefa atual)
