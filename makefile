@@ -20,4 +20,4 @@ queue.o: queue.c queue.h
 	$(CC) $(CFLAGS) queue.c
 
 clean: 
-	rm -rf *.o
+	rm -rf *.o *.out output
