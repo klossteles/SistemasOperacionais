@@ -20,7 +20,7 @@ task_t* scheduler() {
         task_t *aux = prontas->next;
         task_t *next = prontas;  
         while (aux != prontas) {
-            if (task_getprio(aux) < task_getprio(next)) {
+            if (aux->dinamic_priority < next->dinamic_priority) {
                 next = aux;
             }
             aux = aux->next;
@@ -29,7 +29,15 @@ task_t* scheduler() {
         aux = prontas->next;
         while(aux != prontas){
             if (aux != next) {
-                task_setprio(aux, alpha);
+                if (aux->dinamic_priority + alpha < -20) {
+                    aux->dinamic_priority = -20;
+                } else if (aux->dinamic_priority + alpha > 20){
+                    aux->dinamic_priority = 20;
+                } else {
+                    aux->dinamic_priority = aux->dinamic_priority + alpha;
+                }
+            } else {
+                next->dinamic_priority = next->static_priority;
             }
             aux = aux->next;
         }        
@@ -44,13 +52,19 @@ void dispatcher_body ()  {
     task_t *next;
     while ( queue_size((queue_t *)prontas) > 0 ) {
         next = scheduler() ; // scheduler é uma função
-        if (next) {
+        #ifdef DEBUG
+            printf("dispatcher_body: próxima tarefa id: %d, prioridade: %d\n", next->tid, next->dinamic_priority);
+        #endif
+        if (next != NULL) {
             //... // ações antes de lançar a tarefa "next", se houverem
+            queue_remove((queue_t **) &prontas,(queue_t*) next);
+            #ifdef DEBUG
+                printf("dispatcher_body: removeu task da fila id: %d\n", next->tid);
+            #endif
+            task_switch (next) ; // transfere controle para a tarefa "next"
             #ifdef DEBUG
                 printf("dispatcher_body: possui next com id: %d, removendo da fila e mudando contexto\n", next->tid);
             #endif
-            queue_remove((queue_t **) &prontas,(queue_t*) next);
-            task_switch (next) ; // transfere controle para a tarefa "next"
             //... // ações após retornar da tarefa "next", se houverem
         }
     }
@@ -67,6 +81,8 @@ void pingpong_init () {
     mainTask.prev = NULL;
     mainTask.tid = tid;
     mainTask.context = contextMain;
+    mainTask.static_priority = 0;
+    mainTask.dinamic_priority = 0;
 
     taskAtual = &mainTask;
    
@@ -107,7 +123,8 @@ int task_create (task_t *task,			// descritor da nova tarefa
     task->next = NULL;
     task->prev = NULL;
     task->context = context;
-    task->priority = 0;
+    task->static_priority = 0;
+    task->dinamic_priority = 0;
 
     if (task != &taskDispatcher) {
         queue_append((queue_t **) &prontas, (queue_t *)task);
@@ -136,8 +153,12 @@ void task_exit (int exitCode) {
 
 // alterna a execução para a tarefa indicada
 int task_switch (task_t *task) {
-    task_t *aux = taskAtual;
+    task_t *aux;
+    aux = taskAtual;
     taskAtual = task;
+    #ifdef DEBUG
+        printf("task_switch: alterou prioridade da tarefa id: %d, prioridade: %d\n", task->tid, task->dinamic_priority);
+    #endif
     swapcontext(&aux->context, &task->context);
     #ifdef DEBUG
         printf("task_switch: trocando de contexto. task_id: %d\n", task->tid);
@@ -180,25 +201,25 @@ void task_yield () {
 // define a prioridade estática de uma tarefa (ou a tarefa atual)
 void task_setprio (task_t *task, int prio) {
     if (task == NULL){
+        taskAtual->static_priority = prio;
         #ifdef DEBUG
-            printf("task_setprio: taskAtual com id: %d e prioridade: %d\n", taskAtual->tid, taskAtual->priority);
+            printf("task_setprio: taskAtual com id: %d e prioridade: %d muda para \n", taskAtual->tid, taskAtual->static_priority);
         #endif
-        if (taskAtual->priority + prio > -20){
-            taskAtual->priority = taskAtual->priority + prio;
-        }
     } else {
+        task->static_priority = task->static_priority + prio;
         #ifdef DEBUG
-            printf("task_setprio: task com id: %d e prioridade: %d\n", task->tid, task->priority);
+            printf("task_setprio: task com id: %d e prioridade: %d\n", task->tid, task->static_priority);
         #endif
-        if (task->priority + prio > -20){
-            task->priority = task->priority + prio;
-        }
     }
 };
 
 // retorna a prioridade estática de uma tarefa (ou a tarefa atual)
 int task_getprio (task_t *task) {
-    return task->priority;
+    if (task == NULL) {
+        return taskAtual->static_priority;
+    } else {
+        return task->static_priority;
+    }
 };
 
 // operações de sincronização ==================================================
