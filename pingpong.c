@@ -1,17 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
+#include <signal.h>
+#include <sys/time.h>
 #include "datatypes.h"
 #include "pingpong.h"
 #include "queue.h"
 
 #define STACKSIZE 32768
+#define USER_TASK 1
+#define SYSTEM_TASK 0 
 
 int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
 task_t *prontas;
 int alpha = -1;
+
+// estrutura que define um tratador de sinal (deve ser global ou static)
+struct sigaction action;
+
+// estrutura de inicialização to timer
+struct itimerval timer;
+
+int quantum;
 
 // funções gerais ==============================================================
 
@@ -61,6 +73,7 @@ void dispatcher_body ()  {
             #ifdef DEBUG
                 printf("dispatcher_body: removeu task da fila id: %d\n", next->tid);
             #endif
+            quantum = 20;
             task_switch (next) ; // transfere controle para a tarefa "next"
             #ifdef DEBUG
                 printf("dispatcher_body: possui next com id: %d, removendo da fila e mudando contexto\n", next->tid);
@@ -69,6 +82,24 @@ void dispatcher_body ()  {
         }
     }
     task_exit(0); // encerra a tarefa dispatcher
+};
+
+void tratador (int signum)
+{
+    if (taskAtual->task_type == USER_TASK){
+        if (quantum == 0) {
+            #ifdef DEBUG
+                printf("tratador: quantum ZERO, voltando processador para dispatcher\n");
+            #endif
+            task_yield();
+            // task_switch(&taskDispatcher);
+        } else {
+            quantum--;
+            #ifdef DEBUG
+                printf("tratador: quantum diferente de ZERO, decrementando quantum: %d\n", quantum);
+            #endif
+        }
+    }
 };
 
 // Inicializa o sistema operacional; deve ser chamada no inicio do mainTask()
@@ -83,13 +114,37 @@ void pingpong_init () {
     mainTask.context = contextMain;
     mainTask.static_priority = 0;
     mainTask.dinamic_priority = 0;
+    mainTask.task_type = USER_TASK;
 
     taskAtual = &mainTask;
    
+    task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
+
+    action.sa_handler = tratador ;
+    sigemptyset (&action.sa_mask) ;
+    action.sa_flags = 0 ;
+    if (sigaction (SIGALRM, &action, 0) < 0)
+    {
+        perror ("Erro em sigaction: ") ;
+        exit (1) ;
+    }
+
+    // ajusta valores do temporizador
+    timer.it_value.tv_usec = 1000 ;      // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec  = 0 ;      // primeiro disparo, em segundos
+    timer.it_interval.tv_usec = 1000 ;   // disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec  = 0 ;   // disparos subsequentes, em segundos
+
+    // arma o temporizador ITIMER_REAL (vide man setitimer)
+    if (setitimer (ITIMER_REAL, &timer, 0) < 0)
+    {
+        perror ("Erro em setitimer: ") ;
+        exit (1) ;
+    }
+
     #ifdef DEBUG
         printf("pinpong_init: Inicialização finalizada. Tarefa principal (id: %d) criada. \n", mainTask.tid);
     #endif
-    task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
 };
 
 // gerência de tarefas =========================================================
@@ -126,6 +181,12 @@ int task_create (task_t *task,			// descritor da nova tarefa
     task->static_priority = 0;
     task->dinamic_priority = 0;
 
+    if (task == &taskDispatcher) {
+        task->task_type = SYSTEM_TASK;
+    } else {
+        task->task_type = USER_TASK;
+    }
+
     if (task != &taskDispatcher) {
         queue_append((queue_t **) &prontas, (queue_t *)task);
     }
@@ -156,9 +217,6 @@ int task_switch (task_t *task) {
     task_t *aux;
     aux = taskAtual;
     taskAtual = task;
-    #ifdef DEBUG
-        printf("task_switch: alterou prioridade da tarefa id: %d, prioridade: %d\n", task->tid, task->dinamic_priority);
-    #endif
     swapcontext(&aux->context, &task->context);
     #ifdef DEBUG
         printf("task_switch: trocando de contexto. task_id: %d\n", task->tid);
