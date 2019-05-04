@@ -5,13 +5,13 @@ CFLAGS=-c -Wall
 
 # Rules #
 
-all: output
+all: $(info [p06] Write 'make' then the rule you would like to run: 'pingpong-contab' or 'pingpong-contab-prio'.)
 
-output: queue.o pingpong.o pingpong-preempcao.o
-	$(CC) queue.o pingpong.o pingpong-preempcao.o -o output
+pingpong-contab: queue.o pingpong.o pingpong-contab.c
+	$(CC) queue.o pingpong.o pingpong-contab.c -o output
 
-pingpong-preempcao.o: pingpong-preempcao.c
-	$(CC) $(CFLAGS) pingpong-preempcao.c
+pingpong-contab-prio: queue.o pingpong.o pingpong-contab-prio.c
+	$(CC) queue.o pingpong.o pingpong-contab-prio.c -o output
 
 pingpong.o: pingpong.c pingpong.h
 	$(CC) $(CFLAGS) pingpong.c
