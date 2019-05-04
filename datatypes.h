@@ -18,6 +18,7 @@ typedef struct task_t
   ucontext_t context;
   int static_priority;
   int dinamic_priority;
+  int task_type;
 } task_t ;
 
 // estrutura que define um semáforo
