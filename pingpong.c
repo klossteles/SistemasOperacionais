@@ -25,39 +25,50 @@ struct itimerval timer;
 
 int quantum;
 
+int ticks;
+
 // funções gerais ==============================================================
 
 task_t* scheduler() {
     if (queue_size((queue_t *)prontas) > 0) {
-        task_t *aux = prontas->next;
-        task_t *next = prontas;  
-        while (aux != prontas) {
-            if (aux->dinamic_priority < next->dinamic_priority) {
-                next = aux;
-            }
-            aux = aux->next;
-        }
-
-        aux = prontas->next;
-        while(aux != prontas){
-            if (aux != next) {
-                if (aux->dinamic_priority + alpha < -20) {
-                    aux->dinamic_priority = -20;
-                } else if (aux->dinamic_priority + alpha > 20){
-                    aux->dinamic_priority = 20;
-                } else {
-                    aux->dinamic_priority = aux->dinamic_priority + alpha;
-                }
-            } else {
-                next->dinamic_priority = next->static_priority;
-            }
-            aux = aux->next;
-        }        
-
+        task_t *next = prontas;
         return next;
     }
     return 0;
 };
+
+//task_t* scheduler() {
+//    if (queue_size((queue_t *)prontas) > 0) {
+//        task_t *aux = prontas->next;
+//        task_t *next = prontas;
+//        while (aux != prontas) {
+//            if (aux->dinamic_priority < next->dinamic_priority) {
+//                next = aux;
+//            }
+//            aux = aux->next;
+//        }
+//
+//        aux = prontas->next;
+//
+//        for (int i = 0; i < queue_size((queue_t *)prontas); i++) {
+//            if (aux != next) {
+//                if (aux->dinamic_priority + alpha < -20) {
+//                    aux->dinamic_priority = -20;
+//                } else if (aux->dinamic_priority + alpha > 20){
+//                    aux->dinamic_priority = 20;
+//                } else {
+//                    aux->dinamic_priority = aux->dinamic_priority + alpha;
+//                }
+//            } else {
+//                next->dinamic_priority = next->static_priority;
+//            }
+//            aux = aux->next;
+//        }
+//
+//        return next;
+//    }
+//    return 0;
+//};
 
 // dispatcher é uma tarefa
 void dispatcher_body ()  {
@@ -86,13 +97,16 @@ void dispatcher_body ()  {
 
 void tratador (int signum)
 {
+    // Incrementada a cada interrupção do temporizador (1 ms).
+    ticks++;
+    taskAtual->cpu_time++;
+
     if (taskAtual->task_type == USER_TASK){
         if (quantum == 0) {
             #ifdef DEBUG
                 printf("tratador: quantum ZERO, voltando processador para dispatcher\n");
             #endif
             task_yield();
-            // task_switch(&taskDispatcher);
         } else {
             quantum--;
             #ifdef DEBUG
@@ -107,6 +121,7 @@ void pingpong_init () {
     /* desativa o buffer da saida padrao (stdout), usado pela função printf */
     setvbuf (stdout, 0, _IONBF, 0) ;
     tid = 0;
+    ticks = 0;
     getcontext(&contextMain);
     mainTask.next = NULL;
     mainTask.prev = NULL;
@@ -173,13 +188,14 @@ int task_create (task_t *task,			// descritor da nova tarefa
     }
     makecontext (&context, (void*)(*start_func), tid,  arg);
     
-    
     task->tid = tid;
     task->next = NULL;
     task->prev = NULL;
     task->context = context;
     task->static_priority = 0;
     task->dinamic_priority = 0;
+    task->cpu_time = 0;
+    task->activations = 1; // Primeira ativação.
 
     if (task == &taskDispatcher) {
         task->task_type = SYSTEM_TASK;
@@ -199,15 +215,11 @@ int task_create (task_t *task,			// descritor da nova tarefa
 
 // Termina a tarefa corrente, indicando um valor de status encerramento
 void task_exit (int exitCode) {
+    // Contabilização de tarefas. 
+    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
     if (taskAtual == &taskDispatcher){
-        #ifdef DEBUG
-            printf("task_exit: finalizando task dispatcher e indo para main\n");
-        #endif
         task_switch(&mainTask);
     } else {
-        #ifdef DEBUG
-            printf("task_exit: finalizando task %d e indo para dispatcher\n", taskAtual->tid);
-        #endif
         task_switch(&taskDispatcher);
     }
 };
@@ -295,4 +307,6 @@ void task_sleep (int t) {
 };
 
 // retorna o relógio atual (em milisegundos)
-unsigned int systime () ;
+unsigned int systime () {
+    return ticks;
+};

@@ -20,4 +20,5 @@ queue.o: queue.c queue.h
 	$(CC) $(CFLAGS) queue.c
 
 clean: 
+	find . -exec touch \{\} \;
 	rm -rf *.o *.out output
