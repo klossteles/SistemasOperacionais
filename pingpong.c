@@ -27,8 +27,11 @@ task_t* scheduler() {
         }
 
         aux = prontas->next;
-        while(aux != prontas){
-            if (aux != next) {
+
+        // Percorre toda a fila para aplicar o envelhecimento
+        // (com exceção da próxima tarefa a ser executada).
+        for (int i = 0; i < queue_size((queue_t *)prontas); i++) {
+        	if (aux != next) {
                 if (aux->dinamic_priority + alpha < -20) {
                     aux->dinamic_priority = -20;
                 } else if (aux->dinamic_priority + alpha > 20){
@@ -40,7 +43,23 @@ task_t* scheduler() {
                 next->dinamic_priority = next->static_priority;
             }
             aux = aux->next;
-        }        
+        }
+
+        // Aparentemente não estava envelhecendo a primeira tarefa da fila.
+        // while(aux != prontas){
+        //     if (aux != next) {
+        //         if (aux->dinamic_priority + alpha < -20) {
+        //             aux->dinamic_priority = -20;
+        //         } else if (aux->dinamic_priority + alpha > 20){
+        //             aux->dinamic_priority = 20;
+        //         } else {
+        //             aux->dinamic_priority = aux->dinamic_priority + alpha;
+        //         }
+        //     } else {
+        //         next->dinamic_priority = next->static_priority;
+        //     }
+        //     aux = aux->next;
+        // }                
 
         return next;
     }
