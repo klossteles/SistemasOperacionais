@@ -29,46 +29,46 @@ int ticks;
 
 // funções gerais ==============================================================
 
-task_t* scheduler() {
-    if (queue_size((queue_t *)prontas) > 0) {
-        task_t *next = prontas;
-        return next;
-    }
-    return 0;
-};
+// task_t* scheduler() {
+//     if (queue_size((queue_t *)prontas) > 0) {
+//         task_t *next = prontas;
+//         return next;
+//     }
+//     return 0;
+// };
 
-//task_t* scheduler() {
-//    if (queue_size((queue_t *)prontas) > 0) {
-//        task_t *aux = prontas->next;
-//        task_t *next = prontas;
-//        while (aux != prontas) {
-//            if (aux->dinamic_priority < next->dinamic_priority) {
-//                next = aux;
-//            }
-//            aux = aux->next;
-//        }
-//
-//        aux = prontas->next;
-//
-//        for (int i = 0; i < queue_size((queue_t *)prontas); i++) {
-//            if (aux != next) {
-//                if (aux->dinamic_priority + alpha < -20) {
-//                    aux->dinamic_priority = -20;
-//                } else if (aux->dinamic_priority + alpha > 20){
-//                    aux->dinamic_priority = 20;
-//                } else {
-//                    aux->dinamic_priority = aux->dinamic_priority + alpha;
-//                }
-//            } else {
-//                next->dinamic_priority = next->static_priority;
-//            }
-//            aux = aux->next;
-//        }
-//
-//        return next;
-//    }
-//    return 0;
-//};
+task_t* scheduler() {
+   if (queue_size((queue_t *)prontas) > 0) {
+       task_t *aux = prontas->next;
+       task_t *next = prontas;
+       while (aux != prontas) {
+           if (aux->dinamic_priority < next->dinamic_priority) {
+               next = aux;
+           }
+           aux = aux->next;
+       }
+
+       aux = prontas->next;
+
+       for (int i = 0; i < queue_size((queue_t *)prontas); i++) {
+           if (aux != next) {
+               if (aux->dinamic_priority + alpha < -20) {
+                   aux->dinamic_priority = -20;
+               } else if (aux->dinamic_priority + alpha > 20){
+                   aux->dinamic_priority = 20;
+               } else {
+                   aux->dinamic_priority = aux->dinamic_priority + alpha;
+               }
+           } else {
+               next->dinamic_priority = next->static_priority;
+           }
+           aux = aux->next;
+       }
+
+       return next;
+   }
+   return 0;
+};
 
 // dispatcher é uma tarefa
 void dispatcher_body ()  {
@@ -128,7 +128,7 @@ void pingpong_init () {
     mainTask.tid = tid;
     mainTask.context = contextMain;
     mainTask.static_priority = 0;
-    mainTask.dinamic_priority = 0;
+    mainTask.dinamic_priority = mainTask.static_priority;
     mainTask.task_type = USER_TASK;
 
     taskAtual = &mainTask;
@@ -193,7 +193,7 @@ int task_create (task_t *task,			// descritor da nova tarefa
     task->prev = NULL;
     task->context = context;
     task->static_priority = 0;
-    task->dinamic_priority = 0;
+    task->dinamic_priority = task->static_priority;
     task->cpu_time = 0;
     task->activations = 1; // Primeira ativação.
 
@@ -229,6 +229,7 @@ int task_switch (task_t *task) {
     task_t *aux;
     aux = taskAtual;
     taskAtual = task;
+    taskAtual->activations++;
     swapcontext(&aux->context, &task->context);
     #ifdef DEBUG
         printf("task_switch: trocando de contexto. task_id: %d\n", task->tid);
@@ -272,11 +273,13 @@ void task_yield () {
 void task_setprio (task_t *task, int prio) {
     if (task == NULL){
         taskAtual->static_priority = prio;
+        taskAtual->dinamic_priority = taskAtual->static_priority;
         #ifdef DEBUG
             printf("task_setprio: taskAtual com id: %d e prioridade: %d muda para \n", taskAtual->tid, taskAtual->static_priority);
         #endif
     } else {
         task->static_priority = task->static_priority + prio;
+        task->dinamic_priority = task->static_priority;
         #ifdef DEBUG
             printf("task_setprio: task com id: %d e prioridade: %d\n", task->tid, task->static_priority);
         #endif
