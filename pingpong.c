@@ -29,35 +29,44 @@ int quantum;
 
 task_t* scheduler() {
     if (queue_size((queue_t *)prontas) > 0) {
-        task_t *aux = prontas->next;
-        task_t *next = prontas;  
-        while (aux != prontas) {
-            if (aux->dinamic_priority < next->dinamic_priority) {
-                next = aux;
-            }
-            aux = aux->next;
-        }
-
-        aux = prontas->next;
-        while(aux != prontas){
-            if (aux != next) {
-                if (aux->dinamic_priority + alpha < -20) {
-                    aux->dinamic_priority = -20;
-                } else if (aux->dinamic_priority + alpha > 20){
-                    aux->dinamic_priority = 20;
-                } else {
-                    aux->dinamic_priority = aux->dinamic_priority + alpha;
-                }
-            } else {
-                next->dinamic_priority = next->static_priority;
-            }
-            aux = aux->next;
-        }        
-
+        task_t *next = prontas;
         return next;
     }
     return 0;
 };
+
+//task_t* scheduler() {
+//    if (queue_size((queue_t *)prontas) > 0) {
+//        task_t *aux = prontas->next;
+//        task_t *next = prontas;
+//        while (aux != prontas) {
+//            if (aux->dinamic_priority < next->dinamic_priority) {
+//                next = aux;
+//            }
+//            aux = aux->next;
+//        }
+//
+//        aux = prontas->next;
+//
+//        for (int i = 0; i < queue_size((queue_t *)prontas); i++) {
+//            if (aux != next) {
+//                if (aux->dinamic_priority + alpha < -20) {
+//                    aux->dinamic_priority = -20;
+//                } else if (aux->dinamic_priority + alpha > 20){
+//                    aux->dinamic_priority = 20;
+//                } else {
+//                    aux->dinamic_priority = aux->dinamic_priority + alpha;
+//                }
+//            } else {
+//                next->dinamic_priority = next->static_priority;
+//            }
+//            aux = aux->next;
+//        }
+//
+//        return next;
+//    }
+//    return 0;
+//};
 
 // dispatcher é uma tarefa
 void dispatcher_body ()  {
@@ -92,7 +101,6 @@ void tratador (int signum)
                 printf("tratador: quantum ZERO, voltando processador para dispatcher\n");
             #endif
             task_yield();
-            // task_switch(&taskDispatcher);
         } else {
             quantum--;
             #ifdef DEBUG
@@ -120,26 +128,27 @@ void pingpong_init () {
    
     task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
 
+    // Registra a ação para o sinal de timer SIGALRM (timer signal from alarm(1)).
     action.sa_handler = tratador ;
     sigemptyset (&action.sa_mask) ;
     action.sa_flags = 0 ;
     if (sigaction (SIGALRM, &action, 0) < 0)
     {
-        perror ("Erro em sigaction: ") ;
+        perror ("Erro em sigaction: ");
         exit (1) ;
     }
 
     // ajusta valores do temporizador
-    timer.it_value.tv_usec = 1000 ;      // primeiro disparo, em micro-segundos
-    timer.it_value.tv_sec  = 0 ;      // primeiro disparo, em segundos
-    timer.it_interval.tv_usec = 1000 ;   // disparos subsequentes, em micro-segundos
-    timer.it_interval.tv_sec  = 0 ;   // disparos subsequentes, em segundos
+    timer.it_value.tv_usec = 1000;      // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec  = 0;      	// primeiro disparo, em segundos
+    timer.it_interval.tv_usec = 1000;	// disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec  = 0;   	// disparos subsequentes, em segundos
 
     // arma o temporizador ITIMER_REAL (vide man setitimer)
     if (setitimer (ITIMER_REAL, &timer, 0) < 0)
     {
-        perror ("Erro em setitimer: ") ;
-        exit (1) ;
+        perror ("Erro em setitimer: ");
+        exit (1);
     }
 
     #ifdef DEBUG
@@ -172,7 +181,6 @@ int task_create (task_t *task,			// descritor da nova tarefa
         exit (1);
     }
     makecontext (&context, (void*)(*start_func), tid,  arg);
-    
     
     task->tid = tid;
     task->next = NULL;
