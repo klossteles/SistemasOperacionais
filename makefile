@@ -20,4 +20,7 @@ queue.o: queue.c queue.h
 	$(CC) $(CFLAGS) queue.c
 
 clean: 
+	# Solve warning "Clock skew detected".
+	find . -exec touch \{\} \;
+	# Remove files.
 	rm -rf *.o *.out output
