@@ -131,9 +131,10 @@ void pingpong_init () {
     mainTask.dinamic_priority = mainTask.static_priority;
     mainTask.task_type = USER_TASK;
 
-    taskAtual = &mainTask;
-   
+    queue_append((queue_t**) &prontas, (queue_t*) &mainTask);
+
     task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
+    taskAtual = &mainTask;
 
     action.sa_handler = tratador ;
     sigemptyset (&action.sa_mask) ;
@@ -218,7 +219,7 @@ void task_exit (int exitCode) {
     // Contabilização de tarefas. 
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
     if (taskAtual == &taskDispatcher){
-        task_switch(&mainTask);
+        // task_switch(&mainTask);
     } else {
         task_switch(&taskDispatcher);
     }
@@ -260,7 +261,7 @@ void task_resume (task_t *task) {
 // prontas ("ready queue")
 void task_yield () {
     // queue_remove((queue_t **) &prontas, (queue_t *)taskAtual); //remove da fila de prontas
-    if (taskAtual != &mainTask && taskAtual != &taskDispatcher) {
+    if (taskAtual != &taskDispatcher) {
         queue_append((queue_t **) &prontas, (queue_t *)taskAtual); //adiciona em último da fila de prontas
     }
     #ifdef DEBUG
