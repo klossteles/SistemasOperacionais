@@ -11,10 +11,12 @@
 #define USER_TASK 1
 #define SYSTEM_TASK 0 
 
+enum State {READY = 0, RUNNING = 1, WAITING = 2, SUSPENDED = 3, FINISHED = 4};
+
 int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
-task_t *prontas;
+task_t *prontas, *suspensas;
 int alpha = -1;
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
@@ -202,6 +204,7 @@ int task_create (task_t *task,			// descritor da nova tarefa
         task->task_type = SYSTEM_TASK;
     } else {
         task->task_type = USER_TASK;
+        task->task_state = READY;
     }
 
     if (task != &taskDispatcher) {
@@ -218,9 +221,8 @@ int task_create (task_t *task,			// descritor da nova tarefa
 void task_exit (int exitCode) {
     // Contabilização de tarefas. 
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
-    if (taskAtual == &taskDispatcher){
-        // task_switch(&mainTask);
-    } else {
+    if (taskAtual != &taskDispatcher){
+        taskAtual->task_state = FINISHED;
         task_switch(&taskDispatcher);
     }
 };
@@ -229,8 +231,10 @@ void task_exit (int exitCode) {
 int task_switch (task_t *task) {
     task_t *aux;
     aux = taskAtual;
+    aux->task_state = WAITING;
     taskAtual = task;
     taskAtual->activations++;
+    taskAtual->task_state = RUNNING;
     swapcontext(&aux->context, &task->context);
     #ifdef DEBUG
         printf("task_switch: trocando de contexto. task_id: %d\n", task->tid);
@@ -246,13 +250,19 @@ int task_id () {
 // suspende uma tarefa, retirando-a de sua fila atual, adicionando-a à fila
 // queue e mudando seu estado para "suspensa"; usa a tarefa atual se task==NULL
 void task_suspend (task_t *task, task_t **queue) {
-
+    if (task == NULL) {
+        task = taskAtual;
+    }
+    task->task_state = SUSPENDED;
+    queue_append((queue_t**) &suspensas, (queue_t*) task);
 };
 
 // acorda uma tarefa, retirando-a de sua fila atual, adicionando-a à fila de
 // tarefas prontas ("ready queue") e mudando seu estado para "pronta"
 void task_resume (task_t *task) { 
-
+    task->task_state = READY;
+    queue_remove((queue_t**) &suspensas, task);
+    queue_append((queue_t**) &prontas, task);
 };
 
 // operações de escalonamento ==================================================
@@ -300,6 +310,14 @@ int task_getprio (task_t *task) {
 
 // a tarefa corrente aguarda o encerramento de outra task
 int task_join (task_t *task) {
+    if (task == NULL) {
+        return -1;
+    } else if (task->task_state == FINISHED){
+        return -1;
+    }
+    task_suspend(taskAtual, (queue_t*) suspensas);
+    // task_switch(&task);
+    
     return 0;
 };
 
