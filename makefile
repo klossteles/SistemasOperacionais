@@ -5,13 +5,16 @@ CFLAGS=-c -Wall
 
 # Rules #
 
-all: $(info [p06] Write 'make' then the rule you would like to run: 'pingpong-contab' or 'pingpong-contab-prio'.)
+all: $(info [p07] Write 'make' then the rule you would like to run: 'pingpong-join' or 'pingpong-join-ddebug'.)
 
-pingpong-contab: queue.o pingpong.o pingpong-contab.c
-	$(CC) queue.o pingpong.o pingpong-contab.c -o output
+pingpong-join-ddebug: queue.o pingpong-ddebug.o pingpong-join.c
+	$(CC) queue.o pingpong-ddebug.o pingpong-join.c -o output
 
-pingpong-contab-prio: queue.o pingpong.o pingpong-contab-prio.c
-	$(CC) queue.o pingpong.o pingpong-contab-prio.c -o output
+pingpong-join: queue.o pingpong.o pingpong-join.c
+	$(CC) queue.o pingpong.o pingpong-join.c -o output
+
+pingpong-ddebug.o: pingpong.c pingpong.h
+	$(CC) $(CFLAGS) -DDEBUG pingpong.c -o pingpong-ddebug.o
 
 pingpong.o: pingpong.c pingpong.h
 	$(CC) $(CFLAGS) pingpong.c
