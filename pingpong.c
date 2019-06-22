@@ -222,8 +222,16 @@ void task_exit (int exitCode) {
     // Contabilização de tarefas. 
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
     if (taskAtual != &taskDispatcher){
+        taskAtual->exit_code = exitCode;
         taskAtual->task_state = FINISHED;
-        task_switch(&taskDispatcher);
+        #ifdef DEBUG
+            printf("task_exit: tamanho fila suspensas: %d\n", queue_size((queue_t *) suspensas));
+        #endif
+        if (queue_size((queue_t *) suspensas) > 0) {
+            task_switch(suspensas);
+        } else {
+            task_switch(&taskDispatcher);
+        }
     }
 };
 
@@ -255,14 +263,23 @@ void task_suspend (task_t *task, task_t **queue) {
     }
     task->task_state = SUSPENDED;
     queue_append((queue_t**) &suspensas, (queue_t*) task);
+    #ifdef DEBUG
+        printf("task_suspend: tamanho fila suspensas: %d\n", queue_size((queue_t *) suspensas));
+    #endif
 };
 
 // acorda uma tarefa, retirando-a de sua fila atual, adicionando-a à fila de
 // tarefas prontas ("ready queue") e mudando seu estado para "pronta"
 void task_resume (task_t *task) { 
     task->task_state = READY;
-    queue_remove((queue_t**) &suspensas, task);
-    queue_append((queue_t**) &prontas, task);
+    #ifdef DEBUG
+        printf("task_resume 1: tamanho fila suspensas: %d\n", queue_size((queue_t *) suspensas));
+    #endif
+    queue_remove((queue_t**) &suspensas, (queue_t *)task);
+    queue_append((queue_t**) &prontas, (queue_t *)task);
+    #ifdef DEBUG
+        printf("task_resume 2: tamanho fila suspensas: %d\n", queue_size((queue_t *) suspensas));
+    #endif
 };
 
 // operações de escalonamento ==================================================
@@ -313,12 +330,15 @@ int task_join (task_t *task) {
     if (task == NULL) {
         return -1;
     } else if (task->task_state == FINISHED){
-        return -1;
+        return task->exit_code;
+    } else {
+        task_suspend(NULL, &suspensas);
+        task_yield();
+        return task->exit_code;
     }
-    task_suspend(taskAtual, (queue_t*) suspensas);
     // task_switch(&task);
     
-    return 0;
+    // return 0;
 };
 
 // operações de gestão do tempo ================================================
