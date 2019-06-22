@@ -21,6 +21,8 @@ typedef struct task_t
   int task_type;
   int cpu_time;
   int activations;
+  int task_state;
+  int exit_code;
 } task_t ;
 
 // estrutura que define um semáforo
