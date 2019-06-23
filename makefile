@@ -5,7 +5,7 @@ CFLAGS=-c -Wall
 
 # Rules #
 
-all: $(info [p07] Write 'make' then the rule you would like to run: 'pingpong-join' or 'pingpong-join-ddebug'.)
+all: $(info [p08] Write 'make' then the rule you would like to run: 'pingpong-join' or 'pingpong-join-ddebug'.)
 
 pingpong-join-ddebug: queue.o pingpong-ddebug.o pingpong-join.c
 	$(CC) queue.o pingpong-ddebug.o pingpong-join.c -o output

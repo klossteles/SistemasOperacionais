@@ -11,13 +11,13 @@
 #define USER_TASK 1
 #define SYSTEM_TASK 0 
 
-enum State {NEW = 0, READY = 1, RUNNING = 2, SUSPENDED = 3, TERMINATED = 4};
-
 int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
 task_t *prontas, *suspensas;
 int alpha = -1;
+
+enum State {NEW = 0, READY = 1, RUNNING = 2, SUSPENDED = 3, TERMINATED = 4};
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action;
@@ -81,23 +81,26 @@ void dispatcher_body ()  {
             printf("dispatcher_body: próxima tarefa id: %d, prioridade: %d\n", next->tid, next->dinamic_priority);
         #endif
         if (next != NULL) {
-            //... // ações antes de lançar a tarefa "next", se houverem
+            // ações antes de lançar a tarefa "next", se houverem
             if (next->task_state == READY) {
                 #ifdef DEBUG
                     printf("dispatcher_body: removeu task da fila id: %d\n", next->tid);
                 #endif
                 queue_remove((queue_t **) &prontas,(queue_t*) next);
             }
+
             quantum = 20;
-            task_switch (next) ; // transfere controle para a tarefa "next"
+
+            task_switch(next);
+
             #ifdef DEBUG
                 printf("dispatcher_body: possui next com id: %d, removendo da fila e mudando contexto\n", next->tid);
             #endif
+
             if (next->task_state == READY) {
                 queue_append((queue_t **) &prontas, (queue_t *) next);
-                // next->task_state = READY;
             }
-            //... // ações após retornar da tarefa "next", se houverem
+            // ações após retornar da tarefa "next", se houverem
         }
     }
     task_exit(0); // encerra a tarefa dispatcher
@@ -205,7 +208,7 @@ int task_create (task_t *task,          // descritor da nova tarefa
     task->dinamic_priority = task->static_priority;
     task->cpu_time = 0;
     task->activations = 1; // Primeira ativação.
-    task->task_state = READY;
+    task->task_state = READY; // Por enquanto, o Dispatcher recebe READY
 
     if (task == &taskDispatcher) {
         task->task_type = SYSTEM_TASK;
@@ -227,17 +230,22 @@ int task_create (task_t *task,          // descritor da nova tarefa
 void task_exit (int exitCode) {
     taskAtual->exit_code = exitCode;
     taskAtual->task_state = TERMINATED;
+
     // Contabilização de tarefas. 
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
-
+    
     if (queue_size((queue_t*) suspensas) > 0) {
-        task_resume(suspensas);
+        task_resume(suspensas); // passa a primeira tarefa suspensa como parâmetro
     }
+
     task_yield();
 };
 
 // alterna a execução para a tarefa indicada
 int task_switch (task_t *task) {
+    if (task == NULL) {
+        return -1;
+    }
     task_t *aux;
     aux = taskAtual;
     taskAtual = task;
@@ -267,7 +275,8 @@ void task_suspend (task_t *task, task_t **queue) {
 
     task->task_state = SUSPENDED;
     queue_append((queue_t **) queue, (queue_t *)task);
-    #ifdef DEBUG   
+
+    #ifdef DEBUG
         printf("task_suspend: tamanho fila suspensas: %d\n", queue_size((queue_t *) suspensas));
     #endif
 };
@@ -287,7 +296,6 @@ void task_resume (task_t *task) {
 // libera o processador para a próxima tarefa, retornando à fila de tarefas
 // prontas ("ready queue")
 void task_yield () {
-    // queue_remove((queue_t **) &prontas, (queue_t *)taskAtual); //remove da fila de prontas
     // if (taskAtual != &taskDispatcher && taskAtual->task_state == RUNNING) {
         // queue_append((queue_t **) &prontas, (queue_t *)taskAtual); //adiciona em último da fila de prontas
     // }
@@ -329,9 +337,7 @@ int task_getprio (task_t *task) {
 int task_join (task_t *task) {
     if (task == NULL) {
         return -1;
-    }
-
-    if (task->task_state == TERMINATED) {
+    } else if (task->task_state == TERMINATED) {
         return task->exit_code;
     } else {
         task_suspend(NULL, &suspensas);
