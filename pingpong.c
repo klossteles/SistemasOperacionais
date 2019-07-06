@@ -14,10 +14,10 @@
 int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
-task_t *prontas, *suspensas;
+task_t *prontas, *suspensas, *adormecidas;
 int alpha = -1;
 
-enum State {NEW = 0, READY = 1, RUNNING = 2, SUSPENDED = 3, TERMINATED = 4};
+enum State {NEW = 0, READY = 1, RUNNING = 2, SUSPENDED = 3, TERMINATED = 4, SLEEPING = 5};
 
 // estrutura que define um tratador de sinal (deve ser global ou static)
 struct sigaction action;
@@ -75,7 +75,28 @@ task_t* scheduler() {
 // dispatcher é uma tarefa
 void dispatcher_body ()  {
     task_t *next;
-    while ( queue_size((queue_t *)prontas) > 0 ) {
+    while ( queue_size((queue_t *)prontas) > 0 || queue_size((queue_t *)adormecidas) > 0) {
+        if (queue_size((queue_t *)adormecidas) > 0) {
+            // printf("adormecidas possui elementos\n");
+            int queueSize =  queue_size((queue_t *)adormecidas);
+            task_t * nextAdormecida;
+            task_t *adormecida = adormecidas;
+            for (int i = 0; i < queueSize; i++) {
+                nextAdormecida = adormecida;
+                adormecida = adormecida->next;
+                // printf("task adormecida (tid): %d awaking %d systime %d\n", adormecida->tid, adormecida->awaking, (int)systime());
+                if (nextAdormecida->awaking <= (int)systime()) {
+                    // printf("VAI REMOVER!!!!\n");
+                    adormecida->task_state = READY;
+                    queue_remove((queue_t **)&adormecidas, (queue_t *)nextAdormecida);
+                    // printf("REMOVEU de adormecidas size: %d\n", queue_size((queue_t *)adormecidas));
+                    queue_append((queue_t **)&prontas, (queue_t *)nextAdormecida);
+                    // printf("ADICIONOU em prontas size: %d\n", queue_size((queue_t *)prontas));
+                    nextAdormecida ->awaking = 0;
+                }
+            }
+        }
+        // printf("saiu do for\n");
         next = scheduler() ; // scheduler é uma função
         #ifdef DEBUG
             printf("dispatcher_body: próxima tarefa id: %d, prioridade: %d\n", next->tid, next->dinamic_priority);
@@ -103,6 +124,7 @@ void dispatcher_body ()  {
             // ações após retornar da tarefa "next", se houverem
         }
     }
+    printf("encerrando dispatcher\n");
     task_exit(0); // encerra a tarefa dispatcher
 };
 
@@ -111,8 +133,9 @@ void tratador (int signum)
     // Incrementada a cada interrupção do temporizador (1 ms).
     ticks++;
     taskAtual->cpu_time++;
+    // printf("TRATADOR\n");
 
-    if (taskAtual->task_type == USER_TASK){
+    if (taskAtual->task_type == USER_TASK && taskAtual->preempcao == 1){
         if (quantum == 0) {
             #ifdef DEBUG
                 printf("tratador: quantum ZERO, voltando processador para dispatcher\n");
@@ -142,6 +165,7 @@ void pingpong_init () {
     mainTask.dinamic_priority = mainTask.static_priority;
     mainTask.task_type = USER_TASK;
     mainTask.task_state = READY;
+    mainTask.preempcao = 1;
 
     queue_append((queue_t**) &prontas, (queue_t*) &mainTask);
     task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
@@ -157,7 +181,7 @@ void pingpong_init () {
     }
 
     // ajusta valores do temporizador
-    timer.it_value.tv_usec = 1000 ;      // primeiro disparo, em micro-segundos
+    timer.it_value.tv_usec = 1 ;      // primeiro disparo, em micro-segundos
     timer.it_value.tv_sec  = 0 ;      // primeiro disparo, em segundos
     timer.it_interval.tv_usec = 1000 ;   // disparos subsequentes, em micro-segundos
     timer.it_interval.tv_sec  = 0 ;   // disparos subsequentes, em segundos
@@ -209,6 +233,7 @@ int task_create (task_t *task,          // descritor da nova tarefa
     task->cpu_time = 0;
     task->activations = 1; // Primeira ativação.
     task->task_state = READY; // Por enquanto, o Dispatcher recebe READY
+    task->preempcao = 1;
 
     if (task == &taskDispatcher) {
         task->task_type = SYSTEM_TASK;
@@ -228,6 +253,8 @@ int task_create (task_t *task,          // descritor da nova tarefa
 
 // Termina a tarefa corrente, indicando um valor de status encerramento
 void task_exit (int exitCode) {
+    // printf("HERE EXIT\n");
+    taskAtual->preempcao = 0;
     taskAtual->exit_code = exitCode;
     taskAtual->task_state = TERMINATED;
 
@@ -237,6 +264,7 @@ void task_exit (int exitCode) {
     if (queue_size((queue_t*) suspensas) > 0) {
         task_resume(suspensas); // passa a primeira tarefa suspensa como parâmetro
     }
+    taskAtual->preempcao = 1;
 
     task_yield();
 };
@@ -340,8 +368,10 @@ int task_join (task_t *task) {
     } else if (task->task_state == TERMINATED) {
         return task->exit_code;
     } else {
+        taskAtual->preempcao = 0;
         task_suspend(NULL, &suspensas);
         task_yield();
+        taskAtual->preempcao = 1;
         return task->exit_code;
     }
 };
@@ -350,7 +380,15 @@ int task_join (task_t *task) {
 
 // suspende a tarefa corrente por t segundos
 void task_sleep (int t) {
-    
+    taskAtual->preempcao = 0;
+    // printf("task going to sleep (tid): %d\n", taskAtual->tid);
+    taskAtual->task_state = SLEEPING;
+    queue_remove((queue_t **) &prontas, (queue_t *) taskAtual);
+    queue_append((queue_t **) &adormecidas, (queue_t *) taskAtual);
+    t = t *1000;
+    taskAtual->awaking = systime() + t;
+    taskAtual->preempcao = 1;
+    task_yield();
 };
 
 // retorna o relógio atual (em milisegundos)
