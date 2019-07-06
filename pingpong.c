@@ -69,13 +69,13 @@ task_t* scheduler() {
 
        return next;
    }
-   return 0;
+   return NULL;
 };
 
 // dispatcher é uma tarefa
 void dispatcher_body ()  {
     task_t *next;
-    while ( queue_size((queue_t *)prontas) > 0 || queue_size((queue_t *)adormecidas) > 0) {
+    while ( queue_size((queue_t *)prontas) > 0 || queue_size((queue_t *)adormecidas) > 0 ) {
         if (queue_size((queue_t *)adormecidas) > 0) {
             // printf("adormecidas possui elementos\n");
             int queueSize =  queue_size((queue_t *)adormecidas);
@@ -98,10 +98,10 @@ void dispatcher_body ()  {
         }
         // printf("saiu do for\n");
         next = scheduler() ; // scheduler é uma função
-        #ifdef DEBUG
-            printf("dispatcher_body: próxima tarefa id: %d, prioridade: %d\n", next->tid, next->dinamic_priority);
-        #endif
         if (next != NULL) {
+            #ifdef DEBUG
+                printf("dispatcher_body: próxima tarefa id: %d, prioridade: %d\n", next->tid, next->dinamic_priority);
+            #endif
             // ações antes de lançar a tarefa "next", se houverem
             if (next->task_state == READY) {
                 #ifdef DEBUG
@@ -123,6 +123,10 @@ void dispatcher_body ()  {
             }
             // ações após retornar da tarefa "next", se houverem
         }
+        #ifdef DEBUG
+            printf("prontas size %d\n", queue_size((queue_t *)prontas));
+            printf("adormecidas size %d\n", queue_size((queue_t *)adormecidas));
+        #endif
     }
     printf("encerrando dispatcher\n");
     task_exit(0); // encerra a tarefa dispatcher
@@ -265,8 +269,9 @@ void task_exit (int exitCode) {
         task_resume(suspensas); // passa a primeira tarefa suspensa como parâmetro
     }
     taskAtual->preempcao = 1;
-
-    task_yield();
+    queue_remove((queue_t **)&prontas, (queue_t *)taskAtual);
+    task_switch(&taskDispatcher);
+    // task_yield();
 };
 
 // alterna a execução para a tarefa indicada
