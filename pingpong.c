@@ -11,8 +11,6 @@
 #define USER_TASK 1
 #define SYSTEM_TASK 0 
 
-enum State {NEW = 0, READY = 1, RUNNING = 2, SUSPENDED = 3, TERMINATED = 4};
-
 int tid;
 ucontext_t contextMain, contextDispatcher;
 task_t mainTask, *taskAtual, taskDispatcher;
