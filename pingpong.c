@@ -128,7 +128,7 @@ void dispatcher_body ()  {
             printf("adormecidas size %d\n", queue_size((queue_t *)adormecidas));
         #endif
     }
-    printf("encerrando dispatcher\n");
+    printf("Encerrando o Dispatcher...\n");
     task_exit(0); // encerra a tarefa dispatcher
 };
 
@@ -375,8 +375,8 @@ int task_join (task_t *task) {
     } else {
         taskAtual->preempcao = 0;
         task_suspend(NULL, &suspensas);
-        task_yield();
         taskAtual->preempcao = 1;
+        task_yield();
         return task->exit_code;
     }
 };
@@ -386,7 +386,6 @@ int task_join (task_t *task) {
 // suspende a tarefa corrente por t segundos
 void task_sleep (int t) {
     taskAtual->preempcao = 0;
-    // printf("task going to sleep (tid): %d\n", taskAtual->tid);
     taskAtual->task_state = SLEEPING;
     queue_remove((queue_t **) &prontas, (queue_t *) taskAtual);
     queue_append((queue_t **) &adormecidas, (queue_t *) taskAtual);
