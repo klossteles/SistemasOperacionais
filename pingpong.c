@@ -448,7 +448,8 @@ int sem_up (semaphore_t *s) {
 
     if (s->fila) {
         // TODO: FIX WARNING!
-        task_t * task = queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
+        task_t * task = s->fila;
+        queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
     }
 
@@ -467,7 +468,8 @@ int sem_destroy (semaphore_t *s) {
 
     while (s->fila) {
         // TODO: FIX WARNING!
-        task_t * task = queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
+        task_t * task = s->fila;
+        queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
     }
 
