@@ -421,6 +421,7 @@ int sem_down (semaphore_t *s) {
 
     if (s->contador < 0) {
         task_suspend(NULL, &s->fila);
+        task_switch(&taskDispatcher);
         /* As tarefas que estavam suspensas aguardando o semáforo devem ser acordadas 
          * e retornar da operação 'Down' com um código de erro. */
         if(taskAtual->task_state == SUSPENDED) {
