@@ -124,7 +124,6 @@ void dispatcher_body ()  {
             printf("adormecidas size %d\n", queue_size((queue_t *)adormecidas));
         #endif
     }
-    printf("Encerrando o Dispatcher...\n");
     task_exit(0); // encerra a tarefa dispatcher
 };
 
