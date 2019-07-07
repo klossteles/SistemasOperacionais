@@ -29,6 +29,8 @@ int quantum;
 
 int ticks;
 
+int barrier_preemp = 0;
+
 // funções gerais ==============================================================
 
 // task_t* scheduler() {
@@ -135,7 +137,7 @@ void tratador (int signum)
     taskAtual->cpu_time++;
     // printf("TRATADOR\n");
 
-    if (taskAtual->task_type == USER_TASK && taskAtual->preempcao == 1){
+    if (taskAtual->task_type == USER_TASK && taskAtual->preempcao == 1 && barrier_preemp == 1){
         if (quantum == 0) {
             #ifdef DEBUG
                 printf("tratador: quantum ZERO, voltando processador para dispatcher\n");
@@ -165,6 +167,7 @@ void pingpong_init () {
     mainTask.dinamic_priority = mainTask.static_priority;
     mainTask.task_type = USER_TASK;
     mainTask.task_state = READY;
+    mainTask.preempcao = 1;
 
     queue_append((queue_t**) &prontas, (queue_t*) &mainTask);
     task_create(&taskDispatcher, dispatcher_body, "Dispatcher");
@@ -232,6 +235,7 @@ int task_create (task_t *task,          // descritor da nova tarefa
     task->cpu_time = 0;
     task->activations = 1; // Primeira ativação.
     task->task_state = READY;
+    task->preempcao = 1;
 
     if (task == &taskDispatcher) {
         task->task_type = SYSTEM_TASK;
@@ -477,5 +481,72 @@ int sem_destroy (semaphore_t *s) {
 
     taskAtual->preempcao = 1;
 
+    return 0;
+}
+
+// Inicializa uma barreira
+int barrier_create (barrier_t *b, int N) {
+    if (b == NULL) {
+        return -1;
+    }
+    barrier_preemp = 0;
+
+    b->fila = NULL;
+    b->contador = 0;
+    b->n = N;
+    return 0;
+}
+
+// Chega a uma barreira
+int barrier_join (barrier_t *b ) {
+    if (b == NULL) {
+        return -1;
+    }
+    barrier_preemp = 0;
+
+    b->contador++;
+    if (b->contador < b->n) {
+        taskAtual->task_state = SUSPENDED;
+        // queue_remove((queue_t **)&prontas, (queue_t *)b->fila);
+        // queue_append((queue_t **)&b->fila, (queue_t *)taskAtual);
+        // queue_append((queue_t **)&suspensas, (queue_t *)taskAtual);
+        task_suspend(NULL, &b->fila);
+        printf("size %d\n", queue_size((queue_t *)prontas));
+        printf("size barier %d %d\n", b->contador, b->n);
+        task_yield();
+        if(taskAtual->task_state == SUSPENDED){
+            taskAtual->task_state = READY;
+            return -1;
+        }
+    } else {
+        while (b->fila) {
+            printf("state: %d\n", b->fila->task_state);
+            task_t * task = b->fila;
+            queue_remove((queue_t **)&(b->fila), (queue_t *)b->fila);
+            task_resume(task);
+            barrier_preemp = 1;
+        }
+        b->contador = 0;
+    }
+    // if (b->contador == b->n) {
+    //     barrier_preemp = 1;
+    // }
+    return 0;
+}
+
+// Destrói uma barreira
+int barrier_destroy (barrier_t *b) {
+    if (b == NULL) {
+        return -1;
+    }
+    barrier_preemp = 0;
+    while (b->fila) {
+        // TODO: FIX WARNING!
+        task_t * task = b->fila;
+        queue_remove((queue_t **)&(b->fila), (queue_t *)b->fila);
+        task_resume(task);
+    }
+    b->contador = 0;
+    barrier_preemp = 1;
     return 0;
 }
