@@ -29,7 +29,7 @@ int quantum;
 
 int ticks;
 
-int barrier_preemp = 0;
+int barrier_preemp = 1;
 
 // funções gerais ==============================================================
 
@@ -497,6 +497,7 @@ int barrier_create (barrier_t *b, int N) {
     b->fila = NULL;
     b->contador = 0;
     b->n = N;
+    barrier_preemp = 1;
     return 0;
 }
 
@@ -508,8 +509,11 @@ int barrier_join (barrier_t *b ) {
     barrier_preemp = 0;
     b->contador++;
     if (b->contador < b->n) {
+        // task_suspend(NULL, &b->fila);
         taskAtual->task_state = SUSPENDED;
-        task_suspend(NULL, &b->fila);
+        queue_append((queue_t **) &(b->fila), (queue_t *) taskAtual);
+        queue_remove((queue_t **)&prontas, (queue_t *)taskAtual);
+        barrier_preemp = 1;
         task_yield();
         if(taskAtual->task_state == SUSPENDED) {
             taskAtual->task_state = READY;
@@ -517,14 +521,17 @@ int barrier_join (barrier_t *b ) {
         }
     } else {
         while (b->fila) {
-            printf("state: %d\n", b->fila->task_state);
             task_t * task = b->fila;
+            #ifdef DEBUG
+                printf("barrier_join: barreira cheia, state: %d\n", task->task_state);
+            #endif
+
             queue_remove((queue_t **)&(b->fila), (queue_t *)b->fila);
             task_resume(task);
-            barrier_preemp = 1;
         }
         b->contador = 0;
     }
+    barrier_preemp = 1;
     return 0;
 }
 
