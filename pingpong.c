@@ -124,7 +124,7 @@ void dispatcher_body ()  {
             printf("adormecidas size %d\n", queue_size((queue_t *)adormecidas));
         #endif
     }
-    printf("encerrando dispatcher\n");
+    printf("Encerrando o Dispatcher...\n");
     task_exit(0); // encerra a tarefa dispatcher
 };
 
@@ -254,7 +254,7 @@ void task_exit (int exitCode) {
     taskAtual->exit_code = exitCode;
     taskAtual->task_state = TERMINATED;
     // Contabilização de tarefas. 
-    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
+    printf("Task %d exit: execution time %d ms, processor time %d ms, %d acttask_suspendivations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
 
     if (queue_size((queue_t*) suspensas) > 0) {
         task_resume(suspensas);
@@ -365,8 +365,8 @@ int task_join (task_t *task) {
     } else {
         taskAtual->preempcao = 0;
         task_suspend(NULL, &suspensas);
-        task_yield();
         taskAtual->preempcao = 1;
+        task_yield();
         return task->exit_code;
     }
 };
@@ -390,3 +390,89 @@ void task_sleep (int t) {
 unsigned int systime () {
     return ticks;
 };
+
+// semáforos ===================================================================
+
+// cria um semáforo com valor inicial "value"
+int sem_create (semaphore_t *s, int value) {
+    if (s == NULL) {
+        return -1;
+    }
+
+    taskAtual->preempcao = 0;
+
+    s->fila = NULL;
+    s->contador = value;
+
+    taskAtual->preempcao = 1;
+
+    return 0;
+}
+
+// requisita o semáforo
+int sem_down (semaphore_t *s) {
+    if (s == NULL) {
+        return -1;
+    }
+
+    taskAtual->preempcao = 0;
+
+    s->contador--;
+
+    if (s->contador < 0) {
+        task_suspend(NULL, &s->fila);
+        /* As tarefas que estavam suspensas aguardando o semáforo devem ser acordadas 
+         * e retornar da operação 'Down' com um código de erro. */
+        if(taskAtual->task_state == SUSPENDED) {
+            taskAtual->task_state = READY;
+            taskAtual->preempcao = 1;
+            return -1;
+        }
+    }
+
+    taskAtual->preempcao = 1;
+
+    return 0;
+}
+
+// libera o semáforo
+int sem_up (semaphore_t *s) {
+    if (s == NULL) {
+        return -1;
+    }
+
+    taskAtual->preempcao = 0;
+
+    s->contador++;
+
+    if (s->fila) {
+        // TODO: FIX WARNING!
+        task_t * task = queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
+        task_resume(task);
+    }
+
+    taskAtual->preempcao = 1;
+
+    return 0;
+}
+
+// destroi o semáforo, liberando as tarefas bloqueadas
+int sem_destroy (semaphore_t *s) {
+    if (s == NULL) {
+        return -1;
+    }
+
+    taskAtual->preempcao = 0;
+
+    while (s->fila) {
+        // TODO: FIX WARNING!
+        task_t * task = queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
+        task_resume(task);
+    }
+
+    s->contador = 0;
+
+    taskAtual->preempcao = 1;
+
+    return 0;
+}
