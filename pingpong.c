@@ -251,15 +251,20 @@ int task_create (task_t *task,          // descritor da nova tarefa
 
 // Termina a tarefa corrente, indicando um valor de status encerramento
 void task_exit (int exitCode) {
+    taskAtual->preempcao = 0;
     taskAtual->exit_code = exitCode;
     taskAtual->task_state = TERMINATED;
-    // Contabilização de tarefas. 
-    printf("Task %d exit: execution time %d ms, processor time %d ms, %d acttask_suspendivations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
-
+    
+    // Contabilização de tarefas.
+    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
+    
     if (queue_size((queue_t*) suspensas) > 0) {
-        task_resume(suspensas);
+        task_resume(suspensas); // passa a primeira tarefa suspensa como parâmetro
     }
-    task_yield();
+    
+    taskAtual->preempcao = 1;
+    queue_remove((queue_t **)&prontas, (queue_t *)taskAtual);
+    task_switch(&taskDispatcher);
 };
 
 // alterna a execução para a tarefa indicada
@@ -447,7 +452,6 @@ int sem_up (semaphore_t *s) {
     s->contador++;
 
     if (s->fila) {
-        // TODO: FIX WARNING!
         task_t * task = s->fila;
         queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
@@ -467,7 +471,6 @@ int sem_destroy (semaphore_t *s) {
     taskAtual->preempcao = 0;
 
     while (s->fila) {
-        // TODO: FIX WARNING!
         task_t * task = s->fila;
         queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
