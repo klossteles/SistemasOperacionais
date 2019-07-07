@@ -12,9 +12,9 @@
 // Estrutura que define uma tarefa
 typedef struct task_t
 {
-  struct task_t *prev, *next ; // para usar com a biblioteca de filas (cast)
-  int tid ; // ID da tarefa
+  struct task_t *prev, *next; // para usar com a biblioteca de filas (cast)
   ucontext_t context;
+  int tid; // ID da tarefa
   int static_priority;
   int dinamic_priority;
   int task_type;
@@ -29,7 +29,8 @@ typedef struct task_t
 // estrutura que define um semáforo
 typedef struct
 {
-  // preencher quando necessário
+  struct task_t *fila;
+  int contador; 
 } semaphore_t ;
 
 // estrutura que define um mutex
