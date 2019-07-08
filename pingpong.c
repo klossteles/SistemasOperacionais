@@ -258,7 +258,7 @@ void task_exit (int exitCode) {
     taskAtual->task_state = TERMINATED;
     
     // Contabilização de tarefas.
-    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
+    // printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations.\n", taskAtual->tid, systime(), taskAtual->cpu_time, taskAtual->activations);
     
     if (queue_size((queue_t*) suspensas) > 0) {
         task_resume(suspensas); // passa a primeira tarefa suspensa como parâmetro
@@ -454,7 +454,6 @@ int sem_up (semaphore_t *s) {
     s->contador++;
 
     if (s->fila) {
-        // TODO: FIX WARNING!
         task_t * task = s->fila;
         queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
@@ -474,7 +473,6 @@ int sem_destroy (semaphore_t *s) {
     taskAtual->preempcao = 0;
 
     while (s->fila) {
-        // TODO: FIX WARNING!
         task_t * task = s->fila;
         queue_remove((queue_t **)&(s->fila), (queue_t *)s->fila);
         task_resume(task);
@@ -509,26 +507,40 @@ int barrier_join (barrier_t *b ) {
     barrier_preemp = 0;
     b->contador++;
     if (b->contador < b->n) {
-        // task_suspend(NULL, &b->fila);
+        #ifdef DEBUG
+            printf("barrier_join: barreira possui espaços\n");
+        #endif
+        queue_remove((queue_t **)&prontas, (queue_t *)taskAtual);
         taskAtual->task_state = SUSPENDED;
         queue_append((queue_t **) &(b->fila), (queue_t *) taskAtual);
-        queue_remove((queue_t **)&prontas, (queue_t *)taskAtual);
         barrier_preemp = 1;
         task_yield();
-        if(taskAtual->task_state == SUSPENDED) {
-            taskAtual->task_state = READY;
-            return -1;
-        }
     } else {
-        while (b->fila) {
-            task_t * task = b->fila;
-            #ifdef DEBUG
-                printf("barrier_join: barreira cheia, state: %d\n", task->task_state);
-            #endif
-
-            queue_remove((queue_t **)&(b->fila), (queue_t *)b->fila);
-            task_resume(task);
+        while (queue_size((queue_t *)b->fila) > 0) {
+            int queueSize = queue_size((queue_t *)b->fila);
+            task_t * prevTask;
+            task_t *taskAux = b->fila->prev;
+            for (int i = 0; i < queueSize; i++) {
+                prevTask = taskAux;
+                taskAux = taskAux->prev;
+                #ifdef DEBUG
+                    printf("barrier_join: barreira cheia\n");
+                #endif
+                queue_remove((queue_t **)&(b->fila), (queue_t *)prevTask);
+                prevTask->task_state = READY;
+                queue_append((queue_t **) &prontas, (queue_t *) prevTask);
+            }
         }
+        // while (b->fila != NULL) {
+        //     task_t * task = b->fila;
+        //     #ifdef DEBUG
+        //         printf("barrier_join: barreira cheia\n");
+        //     #endif
+        //     queue_remove((queue_t **)&(b->fila), (queue_t *)task);
+        //     // task_resume(task);
+        //     task->task_state = READY;
+        //     queue_append((queue_t **) &prontas, (queue_t *) task);
+        // }
         b->contador = 0;
     }
     barrier_preemp = 1;
@@ -542,7 +554,6 @@ int barrier_destroy (barrier_t *b) {
     }
     barrier_preemp = 0;
     while (b->fila) {
-        // TODO: FIX WARNING!
         task_t * task = b->fila;
         queue_remove((queue_t **)&(b->fila), (queue_t *)b->fila);
         task_resume(task);
